@@ -1,0 +1,107 @@
+
+```{r}
+df = df_backup %>% filter(uso_ozempic == 1)
+antes = glm(residuo_gastrico~ASA+`Dose de ozempic`+
+               Colonoscopia+sintomas_gabriel, 
+            binomial(link="logit"), data=df)
+analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+```
+```{r}
+#cont(df, "Dose de ozempic")
+#hist(df$`Dose de ozempic`)
+
+df = df_backup %>% filter(uso_ozempic == 1)
+
+df$dose1[df$`Dose de ozempic` <= 0.25] = 0
+df$dose1[df$`Dose de ozempic` > 0.25 & df$`Dose de ozempic` <= 0.75] = 1
+df$dose1[df$`Dose de ozempic` > 0.75] = 2
+df$dose1 = as.factor(df$dose1)
+
+df$dose2[df$`Dose de ozempic` < 0.5] = 0
+df$dose2[df$`Dose de ozempic` == 0.5] = 1
+df$dose2[df$`Dose de ozempic` > 0.50] = 2
+df$dose2 = as.factor(df$dose2)
+
+modelo = glm(residuo_gastrico~dose1, 
+            binomial(link="logit"), data=df)
+analise_mod(modelo)
+
+
+modelo = glm(residuo_gastrico~dose2, 
+            binomial(link="logit"), data=df)
+analise_mod(modelo)
+########################################
+
+antes = glm(residuo_gastrico~`Dose de ozempic`+ASA+
+               Colonoscopia+sintomas_gabriel, 
+            binomial(link="logit"), data=df)
+analise_mod(antes) %>% capture()
+########################################
+
+antes = glm(residuo_gastrico~dose1+ASA+
+               Colonoscopia+sintomas_gabriel, 
+            binomial(link="logit"), data=df)
+analise_mod(antes) %>% capture()
+
+########################################
+
+antes = glm(residuo_gastrico~dose2+ASA+
+               Colonoscopia+sintomas_gabriel, 
+            binomial(link="logit"), data=df)
+analise_mod(antes) %>% capture()
+
+```
+
+```{r}
+
+```
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
