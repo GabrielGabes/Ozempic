@@ -1,0 +1,73 @@
+```{r}
+
+df = df_backup
+
+nrow(df)
+df$`Informou expontaneamente o uso de ozempic` %>% table()
+
+df = df %>% filter(Diabetes == 0) %>% filter(uso_ozempic == 1)
+
+df$`Informou expontaneamente o uso de ozempic` %>% table()
+nrow(df)
+
+```
+
+```{r}
+
+quantidade_colunas = nrow(df)*60/100
+quantidade_colunas = round(quantidade_colunas, 0)
+quantidade_colunas
+
+df = sample_n(df, quantidade_colunas)
+df$`Informou expontaneamente o uso de ozempic` %>% table()
+
+
+```
+
+```{r}
+colunas_demograficas = c('IMC','Idade','Gênero','tempo_uso_dias','tempo_uso_dias2','tempo_uso_semanas','tempo_de_uso_cat','sintomas_gabriel')
+coluna_analisada = 'Informou expontaneamente o uso de ozempic'
+tabelona = summary_numerico_por_grupo_n_parametrico(df, "Idade", coluna_analisada)[FALSE, ]
+
+for (coluna in colunas_demograficas){
+  classe = class(df[[coluna]])
+  if (classe == "numeric"){
+    if (normalidade_por_grupo_criterio(df, coluna, coluna_analisada) == TRUE){
+      tabelinha = summary_numerico_por_grupo_parametrico(df, coluna, coluna_analisada)
+    }
+    else{
+      tabelinha = summary_numerico_por_grupo_n_parametrico(df, coluna, coluna_analisada)
+    }
+    tabelona = rbind(tabelona, tabelinha)
+  }
+  else{
+    tabelinha = conti(df, coluna_analisada, coluna)
+    tabelona = rbind(tabelona, tabelinha)
+  }
+}
+colnames(tabelona)[colnames(tabelona) == "Overall"] = paste0("Overall (n=", nrow(df[complete.cases(df[[coluna_analisada]]), ]), ")")
+niveis = levels(df[[coluna_analisada]])
+for (i in 1:length(niveis)){
+  nivel = niveis[i]
+  colnames(tabelona)[colnames(tabelona) == nivel] = paste0(nivel, " (n=", table(df[[coluna_analisada]])[i], ")")}
+
+tabelona = tabelona %>% filter(Variable != "0_na_vazio")
+tabelona %>% capture()
+```
+
+```{r}
+df$
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+

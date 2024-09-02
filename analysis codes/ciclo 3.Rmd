@@ -1,0 +1,355 @@
+```{r}
+df = df_backup %>% filter(uso_ozempic == 1)
+
+table(df$residuo_gastrico)
+df$residuo_gastrico <- as.numeric(df$residuo_gastrico) - 1
+table(df$residuo_gastrico)
+
+df$tempo_sus = df$`Tempo desde a ultima dose de ozempic em dias`
+class(df$tempo_sus)
+
+
+nrow(df)
+```
+```{r}
+
+```
+
+```{r}
+table(df$uso_ozempic)
+
+sum(!is.na(df$tempo_sus))
+hist(df$tempo_sus)
+
+sum(!is.na(df$`Tempo total de uso em meses`))
+hist(df$`Tempo total de uso em meses`)
+```
+
+```{r}
+table(df$tempo_suspencao)
+df$tempo_suspencao <- droplevels(df$tempo_suspencao)
+table(df$tempo_suspencao)
+```
+
+
+```{r}
+analise_mod(glm(df$residuo_gastrico~df$tempo_sus, family='binomial', data=df)) %>% capture()
+```
+
+```{r ANALISE DE MATRIX CONFUSÃO}
+#################################################
+fd = data.frame(dias_suspencao = numeric(0), 
+                tn = numeric(0), fp = numeric(0), 
+                fn = numeric(0), tp = numeric(0))
+
+pontos_de_corte = unique(sort(df$tempo_sus))
+
+for (i in pontos_de_corte){
+  df$controle = ifelse(df$tempo_sus <= i, 1, 0)
+  tb = table(df$controle, df$residuo_gastrico)
+  #print(tb)
+  tn = tb[1]
+  fp = tb[2]
+  fn = tb[3]
+  tp = tb[4]
+  
+  fd[nrow(fd)+1,] = c(i, tn, fp, fn, tp)
+}
+
+fd = fd  %>% filter(dias_suspencao <= 30)
+fd <- fd[-nrow(fd), ]
+fd[is.na(fd)] <- 0
+
+fd$acuracia = (fd$tp + fd$tn) / (fd$tn + fd$fp + fd$fn + fd$tp)
+fd$precisao = fd$tp / (fd$tp + fd$fp)
+
+fd$sensibilidade = fd$tp / (fd$tp + fd$fn) # Recall
+fd$especificidade = fd$tn / (fd$tn + fd$fp)
+
+fd[is.na(fd)] <- 0
+fd$f1 = 2 * (fd$precisao * fd$sensibilidade) / (fd$precisao + fd$sensibilidade)
+
+fd$valor_pre_posi = fd$tp / (fd$tp + fd$fp)
+fd$valor_pre_neg = fd$tn / (fd$tn + fd$fn)
+
+# Métricas adicionais
+fd$taxa_falsos_positivos = 1 - fd$especificidade # Taxa de Falsos Positivos (False Positive Rate)
+fd$taxa_falsos_negativos = 1 - fd$sensibilidade # Taxa de Falsos Negativos (False Negative Rate)
+fd$fdr = fd$fp / (fd$tp + fd$fp) # Taxa de Falsas Descobertas (False Discovery Rate)
+fd$fo_r = fd$fn / (fd$tn + fd$fn) # Taxa de Falsas Omissões (False Omission Rate)
+fd$indice_youden = fd$sensibilidade + fd$especificidade - 1 # Índice de Youden (Youden's Index)
+
+# Coeficiente de Matthews (Matthews Correlation Coefficient)
+fd$coef_matthews = (fd$tp*fd$tn - fd$fp*fd$fn) / sqrt((fd$tp+fd$fp)*(fd$tp+fd$fn)*(fd$tn+fd$fp)*(fd$tn+fd$fn))
+
+# Definindo beta como 1 para F1-Score
+beta <- 1
+fd$fb_score = (1 + beta^2) * (fd$valor_pre_posi * fd$sensibilidade) / 
+              ((beta^2 * fd$valor_pre_posi) + fd$sensibilidade)
+
+fd[is.na(fd)] <- 0
+fd
+
+# Area sobre a curva
+fdd <- fd[order(fd$taxa_falsos_positivos),]
+auc <- 0
+for (i in 1:(nrow(fdd) - 1)) {
+    delta_x <- fdd$taxa_falsos_positivos[i+1] - fdd$taxa_falsos_positivos[i]
+    avg_y <- (fdd$sensibilidade[i+1] + fdd$sensibilidade[i]) / 2
+    auc <- auc + delta_x * avg_y
+}
+auc
+
+```
+
+```{r}
+ggplot(na.omit(fd), aes(x= taxa_falsos_positivos, y= sensibilidade)) +
+  theme_bw() + 
+  geom_step(color= "black", size=0.7) +
+  geom_line(color = "red", size=1) + 
+  geom_point(color= "black", alpha=0.5, size=3.5) +
+  labs(title="Curve Roc: Suspension Time", x="1 - Specificity", y="Sensibility",
+       subtitle = paste("AUC =", rround(auc, 2))) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", size=0.7)
+  
+ggsave("sens_espe3.png", height=10, width=15, units="cm", dpi= 600)
+
+#########################################################
+
+fd_melt <- reshape2::melt(fd, id.vars="dias_suspencao", 
+                          measure.vars=c("acuracia", "sensibilidade", "especificidade", 
+                                         "valor_pre_posi", 
+                                         "valor_pre_neg", "f1", "taxa_falsos_positivos", "taxa_falsos_negativos", 
+                                         "fdr", "fo_r", "indice_youden", "coef_matthews"))
+
+# Plotando todas as métricas no mesmo gráfico
+ggplot(fd_melt, aes(x=dias_suspencao, y=value, color=variable)) +
+  geom_line(size=1) +
+  geom_point(alpha=0.5, size=3.5) +
+  labs(title="Metrics vs Cutoff", 
+       x="Suspension Days (≤)", y="Proportion", fill="") +
+  scale_color_manual(values=c("#011627", "#3a86ff", "#DF5474", "#8ac926", "#F6BD60", "#BDA0BC", "#bde0fe",
+                             "#8338ec", "#ffc2d1", "#a98467", "#f72585", "#eec170"), name="",
+                     labels = c("Accuracy", "Sensibility", "Specificity", 
+                                "Positive Predictive Value", "Negative Predictive Value",
+                                "F1 Score", "False Positive Rate", "False Negative Rate", "False Discovery Rate",
+                                "False Omission Rate", "Youden's Index", "Matthews Correlation Coefficient")) +
+  theme_bw() + theme(legend.position="bottom") +
+  scale_x_continuous(breaks=seq(from = 0, to = 30, by = 2), limits = c(0, 30))
+
+ggsave("sens_espe2.png", height=15, width=20, units="cm", dpi= 600)
+
+```
+
+```{r}
+dias = 10
+df$controle = ifelse(df$tempo_sus <= dias, 1, 0)
+modelo = analise_mod(glm(df$residuo_gastrico~as.factor(df$controle), family='binomial', data=df))
+modelo
+
+odds = rround(modelo$OR[2], 2)
+ic_1 = rround(modelo$`2.5 %`[2], 2)
+ic_2 = rround(modelo$`97.5 %`[2], 2)
+odds_ration = paste0(odds, " (", ic_1, " - ", ic_2, ")")
+odds_ration
+
+```
+
+
+```{r}
+Metricas = function(dataframe_zin, variavel_numerica, titulo, eixo_x){
+  fd = data.frame(var_num_titulo = numeric(0), 
+                  "tn" = numeric(0), "fp" = numeric(0), 
+                  "fn" = numeric(0), "tp" = numeric(0))
+  
+  pontos_de_corte = unique(sort(dataframe_zin[[variavel_numerica]]))
+  for (i in pontos_de_corte){
+    dataframe_zin$controle = ifelse(dataframe_zin[[variavel_numerica]] <= i, 1, 0)
+    tb = table(dataframe_zin$controle, dataframe_zin$residuo_gastrico)
+    #print(tb)
+    tn = tb[1]
+    fp = tb[2]
+    fn = tb[3]
+    tp = tb[4]
+    
+    fd[nrow(fd)+1,] = c(i, tn, fp, fn, tp)
+  }
+  
+  fd = fd  %>% filter(var_num_titulo <= 30)
+  fd[is.na(fd)] <- 0
+
+  fd$acuracia = (fd$tp + fd$tn) / (fd$tn + fd$fp + fd$fn + fd$tp)
+  fd$precisao = fd$tp / (fd$tp + fd$fp)
+  
+  fd$sensibilidade = fd$tp / (fd$tp + fd$fn) # Recall
+  fd$especificidade = fd$tn / (fd$tn + fd$fp)
+  
+  fd[is.na(fd)] <- 0
+  
+  fd$f1 = 2 * (fd$precisao * fd$sensibilidade) / (fd$precisao + fd$sensibilidade)
+  
+  fd$valor_pre_posi = fd$tp / (fd$tp + fd$fp)
+  fd$valor_pre_neg = fd$tn / (fd$tn + fd$fn)
+  
+  # Métricas adicionais
+  fd$taxa_falsos_positivos = 1 - fd$especificidade # Taxa de Falsos Positivos (False Positive Rate)
+  fd$taxa_falsos_negativos = 1 - fd$sensibilidade # Taxa de Falsos Negativos (False Negative Rate)
+  fd$fdr = fd$fp / (fd$tp + fd$fp) # Taxa de Falsas Descobertas (False Discovery Rate)
+  fd$fo_r = fd$fn / (fd$tn + fd$fn) # Taxa de Falsas Omissões (False Omission Rate)
+  fd$indice_youden = fd$sensibilidade + fd$especificidade - 1 # Índice de Youden (Youden's Index)
+  
+  # Coeficiente de Matthews (Matthews Correlation Coefficient)
+  fd$coef_matthews = (fd$tp*fd$tn - fd$fp*fd$fn) / sqrt((fd$tp+fd$fp)*(fd$tp+fd$fn)*(fd$tn+fd$fp)*(fd$tn+fd$fn))
+  
+  # Definindo beta como 1 para F1-Score
+  beta <- 1
+  fd$fb_score = (1 + beta^2) * (fd$valor_pre_posi * fd$sensibilidade) / 
+                ((beta^2 * fd$valor_pre_posi) + fd$sensibilidade)
+  
+  fd[is.na(fd)] <- 0
+  fd = fd %>% mutate_if(is.numeric, ~ifelse(. < 0, 0, .))
+  fd_melt <- reshape2::melt(fd, id.vars="var_num_titulo", 
+                            measure.vars=c("acuracia", "sensibilidade", "especificidade", 
+                                           "valor_pre_posi", 
+                                           "valor_pre_neg", "f1", "taxa_falsos_positivos", "taxa_falsos_negativos", 
+                                           "fdr", "fo_r", "indice_youden", "coef_matthews"))
+  
+  titulo = adicionar_quebra_de_linha(titulo)
+  # Plotando todas as métricas no mesmo gráfico
+  grafico = ggplot(fd_melt, aes(x=var_num_titulo, y=value, color=variable)) +
+    geom_line(size=1) +
+    geom_point(alpha=0.5, size=3.5) +
+    labs(title=paste0(titulo, " (n=", nrow(dataframe_zin), ")"), 
+         x=paste0(eixo_x," (≤)"), y="Proportion", fill="") +
+    scale_color_manual(values=c("#011627", "#3a86ff", "#DF5474", "#8ac926", "#F6BD60", "#BDA0BC", "#bde0fe",
+                               "#8338ec", "#ffc2d1", "#a98467", "#f72585", "#eec170"), name="",
+                       labels = c("Accuracy", "Sensibility", "Specificity", 
+                                  "Positive Predictive Value", "Negative Predictive Value",
+                                  "F1 Score", "False Positive Rate", "False Negative Rate", "False Discovery Rate",
+                                  "False Omission Rate", "Youden's Index", "Matthews Correlation Coefficient")) +
+    theme_bw() + theme(legend.position="bottom", plot.title = element_text(hjust = 0.5)) +
+    scale_x_continuous(breaks=seq(from = 0, to = max(fd$var_num_titulo), by = 2), 
+                       limits = c(0, max(fd$var_num_titulo))) +
+    scale_y_continuous(breaks=seq(from = 0, to = 1, by = .25), limits = c(0, 1))
+  
+  grafico
+  #fd
+}
+
+Metricas(df, 'Tempo total de uso em meses', "Overall", "Usage in Months ")
+Metricas(df, "Tempo desde a ultima dose de ozempic em dias", "Overall", "Suspension days")
+```
+
+
+```{r}
+calculate_metrics(df %>% filter(sintomas_gabriel == 0), "Yes Sintomns")
+calculate_metrics(df %>% filter(sintomas_gabriel == 1), "No Sintomns")
+```
+
+```{r}
+corte = 6
+calculate_metrics(df %>% filter(`Tempo total de uso em meses` <= corte), "Tempo de uso <= 6")
+calculate_metrics(df %>% filter(`Tempo total de uso em meses` > corte), "Tempo de uso > 6")
+```
+
+```{r}
+corte = 9
+calculate_metrics(df %>% filter(`Tempo total de uso em meses` <= corte), 'Tempo de Uso <= 9')
+calculate_metrics(df %>% filter(`Tempo total de uso em meses` > corte), 'Tempo de Uso > 9')
+```
+
+```{r}
+df$corte_suspensao = ifelse(df$tempo_sus <= 10, 1, 0)
+table(df$corte_suspensao)
+
+
+table(df$sintomas_gabriel)
+```
+
+
+
+```{r}
+corte = 7
+
+df$tempo_suspencao = NA
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` <= corte] = 0
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > corte] = 1
+df$tempo_suspencao = as.factor(df$tempo_suspencao)
+
+conti(df, "residuo_gastrico", "tempo_suspencao") %>% capture()
+
+################################
+
+ggplot(df, aes(x=as.factor(residuo_gastrico), 
+               y=`Tempo desde a ultima dose de ozempic em dias`,
+               fill=as.factor(tempo_suspencao))) + 
+  geom_boxplot(alpha=0.9) +
+  labs(x="", y="dias de tempo de suspensão",
+       fill="Tempo de Suspensao") + 
+  theme(plot.title=element_text(face='italic'), 
+        axis.title=element_text(size=9, face='italic')) +
+  theme_bw() +
+  scale_x_discrete(labels = c("No Gastric residue","Gastric residue")) +
+  scale_fill_manual(values=c("#DF5474","#118ab2"), 
+                    labels=c(paste0("<", corte),
+                             paste0(">=", corte)))
+
+
+df$subniveis = NA
+df$subniveis[df$residuo_gastrico == 0 & df$tempo_suspencao == 0] = "resi0_tempo_0"
+df$subniveis[df$residuo_gastrico == 1 & df$tempo_suspencao == 0] = "resi1_tempo_0"
+df$subniveis[df$residuo_gastrico == 1 & df$tempo_suspencao == 1] = "resi1_tempo_1"
+df$subniveis[df$residuo_gastrico == 0 & df$tempo_suspencao == 1] = "resi0_tempo_1"
+
+kruskal.test(df$`Tempo desde a ultima dose de ozempic em dias`~df$subniveis)
+
+
+primeira_comparacao = df %>% filter(df$subniveis == "resi1_tempo_0")
+primeira_comparacao = df$`Tempo desde a ultima dose de ozempic em dias`
+segunda_comparacao = df %>% filter(df$subniveis == "resi0_tempo_0")
+segunda_comparacao = df$`Tempo desde a ultima dose de ozempic em dias`
+wilcox.test(primeira_comparacao, segunda_comparacao)
+teste_man = wilcox.test(primeira_comparacao, segunda_comparacao,conf.int = TRUE)
+man = retorne_p_ajust(retorne_p(teste_man$p.value))
+#Estimador Hodges Lehmann
+estimador = as.character(rround(teste_man$estimate,2))
+IC_00 = as.character(rround(teste_man$conf.int[1],2))
+IC_01 = as.character(rround(teste_man$conf.int[2],2))
+hodges_lehmann = paste0(estimador,' [',IC_00,' to ',IC_01,']')
+hodges_lehmann
+
+
+
+
+primeira_comparacao = df %>% filter(df$subniveis == "resi1_tempo_1")
+primeira_comparacao = df$`Tempo desde a ultima dose de ozempic em dias`
+segunda_comparacao = df %>% filter(df$subniveis == "resi0_tempo_1")
+segunda_comparacao = df$`Tempo desde a ultima dose de ozempic em dias`
+wilcox.test(primeira_comparacao, segunda_comparacao)
+teste_man = wilcox.test(primeira_comparacao, segunda_comparacao,conf.int = TRUE)
+man = retorne_p_ajust(retorne_p(teste_man$p.value))
+#Estimador Hodges Lehmann
+estimador = as.character(rround(teste_man$estimate,2))
+IC_00 = as.character(rround(teste_man$conf.int[1],2))
+IC_01 = as.character(rround(teste_man$conf.int[2],2))
+hodges_lehmann = paste0(estimador,' [',IC_00,' to ',IC_01,']')
+hodges_lehmann
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

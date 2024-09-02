@@ -1,0 +1,722 @@
+```{r}
+setwd("C:/Users/ADM/OneDrive/Documentos/Ozempic")
+df <- read_excel("Resposta Gabriel.xlsx", sheet="Coleta de dados")
+
+df <- rename(df, "residuo_gastrico" = "Resíduo gástrico")
+df <- rename(df, "uso_ozempic" = "Uso de ozempic")
+
+################################################
+df$tempo_uso_dias = df$`Data do exame` - df$`Início do uso`
+df$tempo_uso_dias = as.numeric(df$tempo_uso_dias)
+class(df$tempo_uso_dias)
+#df$tempo_uso_dias[df$tempo_uso_dias < 0] = df$`Tempo total de uso em meses`*30
+df$tempo_uso_dias[df$tempo_uso_dias < 0 & !is.na(df$`Tempo total de uso em meses`)] = df$`Tempo total de uso em meses`*30
+
+summary(df$tempo_uso_dias)
+
+df$tempo_uso_semanas = df$tempo_uso_dias/7
+summary(df$tempo_uso_semanas)
+
+df$tempo_uso_dias2 = df$`Tempo total de uso em meses`*7
+summary(df$tempo_uso_semanas2)
+
+########################
+summary(df$`Tempo total de uso em meses`)
+hist(df$`Tempo total de uso em meses`)
+#hist(df$`Tempo total de uso em meses`)
+df$tempo_de_uso_cat = NA
+df$tempo_de_uso_cat[is.na(df$`Tempo total de uso em meses`)] = 0
+df$tempo_de_uso_cat[df$`Tempo total de uso em meses` <= 4] = 1
+df$tempo_de_uso_cat[df$`Tempo total de uso em meses` > 4 & df$`Tempo total de uso em meses` <= 8] = 2
+df$tempo_de_uso_cat[df$`Tempo total de uso em meses` > 8] = 3# & df$`Tempo total de uso em meses` <= 12] = 3
+#df$tempo_de_uso_cat[df$`Tempo total de uso em meses` > 12] = 4
+conti(df, "residuo_gastrico", "tempo_de_uso_cat", "row")
+
+df$tempo_de_uso_cat = as.factor(df$tempo_de_uso_cat)
+table(df$tempo_de_uso_cat)
+
+################################################
+df$`Broncoaspiração (Sim ou Não)` = NULL
+df$`indicações de eda` = NULL
+
+df$`Nome completo` = NULL
+df$`número do caso` = NULL
+df$`Data da ultima dose de ozempic` = NULL
+
+df$`Data de nascimento` = NULL
+df$Atendimento = NULL
+df$`Data do exame` = NULL
+
+df$`Início do jejum de líquidos` = NULL
+df$`Início do jejum de sólidos` = NULL
+df$`Início do uso` = NULL
+df$`Início do procedimento` = NULL
+
+df$`tempo_jejum_liquidos GABRIEL` = NULL
+df$`tempo_jejum_solidos GABRIEL` = NULL
+
+df$`Outras comorbidades` = NULL
+df$`Cirurgia prévia` = NULL
+df$`Medicações em uso` = NULL
+
+df$`Tipo de resíduo` = NULL
+df$`Origem do paciente (Unidade de internação, UTI, OS, Externo)` = NULL
+df$Sintomas = NULL
+
+################ PRÉ PROCESSAMENTOS ################################################
+df$Altura = as.numeric(df$Altura)
+df$Dislipidemia[is.na(df$Dislipidemia)] = 0
+df$IMC[is.na(df$IMC)] = 0
+df$HAS[is.na(df$HAS)] = 0
+df$Diabetes[is.na(df$Diabetes)] = 0
+df$Diabetes[is.na(df$Diabetes)] = 0
+
+################################################
+df$ozempic_sintomas = NA
+df$ozempic_sintomas[df$uso_ozempic == 0 & df$sintomas_gabriel == 0] = 0
+df$ozempic_sintomas[df$uso_ozempic == 1 & df$sintomas_gabriel == 1] = 1
+df$ozempic_sintomas[df$uso_ozempic == 1 & df$sintomas_gabriel == 0] = 2
+df$ozempic_sintomas[df$uso_ozempic == 0 & df$sintomas_gabriel == 1] = 3
+df$ozempic_sintomas = as.factor(df$ozempic_sintomas)
+#table(df$ozempic_sintomas)
+
+################################################
+df$tempo_suspencao = NA
+df$tempo_suspencao[is.na(df$`Tempo desde a ultima dose de ozempic em dias`)] = 0
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` <= 7] = 1
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 7 & df$`Tempo desde a ultima dose de ozempic em dias` <= 14] = 2
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 14 & df$`Tempo desde a ultima dose de ozempic em dias` <= 21] = 3
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 21] = 4
+df$tempo_suspencao = as.factor(df$tempo_suspencao)
+table(df$tempo_suspencao)
+
+table(df$`Ultima dose a mais de 7 dias`)
+df$`Ultima dose a mais de 7 dias` = NULL
+df$ultima_dose_a_mais_de_7_dias = NA
+df$ultima_dose_a_mais_de_7_dias[df$`Tempo desde a ultima dose de ozempic em dias` > 7] = 1
+df$ultima_dose_a_mais_de_7_dias[df$`Tempo desde a ultima dose de ozempic em dias` <= 7] = 0
+table(df$ultima_dose_a_mais_de_7_dias)
+
+
+table(df$`Ultima dose a mais de 10 dias`)
+df$`Ultima dose a mais de 10 dias` = NULL
+df$ultima_dose_a_mais_de_10_dias = NA
+df$ultima_dose_a_mais_de_10_dias[df$`Tempo desde a ultima dose de ozempic em dias` > 10] = 1
+df$ultima_dose_a_mais_de_10_dias[df$`Tempo desde a ultima dose de ozempic em dias` <= 10] = 0
+table(df$ultima_dose_a_mais_de_10_dias)
+
+
+table(df$`Ultima dose a mais de 14 dias`)
+df$`Ultima dose a mais de 14 dias` = NULL
+df$ultima_dose_a_mais_de_14_dias = NA
+df$ultima_dose_a_mais_de_14_dias[df$`Tempo desde a ultima dose de ozempic em dias` > 14] = 1
+df$ultima_dose_a_mais_de_14_dias[df$`Tempo desde a ultima dose de ozempic em dias` <= 14] = 0
+table(df$ultima_dose_a_mais_de_14_dias)
+
+
+table(df$`Ultima dose a mais de 21 dias`)
+df$`Ultima dose a mais de 21 dias` = NULL
+df$ultima_dose_a_mais_de_21_dias = NA
+df$ultima_dose_a_mais_de_21_dias[df$`Tempo desde a ultima dose de ozempic em dias` > 21] = 1
+df$ultima_dose_a_mais_de_21_dias[df$`Tempo desde a ultima dose de ozempic em dias` <= 21] = 0
+table(df$ultima_dose_a_mais_de_21_dias)
+
+
+
+################################################
+for (coluna in names(df)){
+  classe = class(df[[coluna]])
+  if (classe == "numeric"){
+    if (length(levels(as.factor(df[[coluna]]))) == 2){
+      df[[coluna]] = as.factor(df[[coluna]])
+    }
+  }
+}
+
+
+df_backup = df
+
+#write_xlsx(df, path = "df_limpo.xlsx")
+
+#df
+#names(df)
+```
+
+```{r}
+conti(df, "residuo_gastrico", 'uso_ozempic')
+conti(df, "residuo_gastrico", 'uso_ozempic', 'row')
+```
+
+
+```{r}
+for (coluna in names(df)){
+  print(coluna)
+  classe = class(df[[coluna]])
+  if (classe == "numeric"){
+    print(summary(df[[coluna]]))
+    }
+  else{
+    print(table(df[[coluna]]))
+  }
+  print("-----------------------------------------------------")
+}
+```
+
+```{r}
+#utilização de ozempic aumenta a chance ter residuo gastrico ?
+conti(df, "residuo_gastrico", "uso_ozempic")
+
+#qual a proporção de residuo gastrico atraves do tempo ?
+df$`Tempo desde a ultima dose de ozempic em dias`[df$`Tempo desde a ultima dose de ozempic em dias` == 'n/a'] = NA
+df$`Tempo desde a ultima dose de ozempic em dias` = as.numeric(df$`Tempo desde a ultima dose de ozempic em dias`)
+summary(df$`Tempo desde a ultima dose de ozempic em dias`)
+
+df$`Tempo desde a ultima dose de ozempic em dias`
+df$`residuo_gastrico`
+conti(df, "residuo_gastrico","Tempo desde a ultima dose de ozempic em dias","row")
+
+#qual o impacto da dose e do tempo
+```
+
+################################################# ANALISE RESIDUO GASTRICO #################################################
+
+```{r TABELA CRUZAMENTOS}
+coluna_analisada = "residuo_gastrico"
+lista_coluna = names(df)[which(!(names(df) %in% c("residuo_gastrico",
+                                                  "Quantidade de resíduo",
+                                                  "tipo_residuo",'uso_ozempic')))]
+
+df$`residuo_gastrico` = as.factor(df$`residuo_gastrico`)
+tabelona = summary_num_cat("Idade", coluna_analisada)[FALSE, ]
+
+for (coluna in lista_coluna){
+  classe = class(df[[coluna]])
+  if (classe == "numeric"){
+    if (normalidade_por_grupo_criterio(coluna, coluna_analisada) == TRUE){
+      tabelinha = summary_numerico_por_grupo_parametrico(coluna, coluna_analisada)
+    }
+    else{
+      tabelinha = summary_numerico_por_grupo_n_parametrico(coluna, coluna_analisada)
+    }
+    tabelona = rbind(tabelona, tabelinha)
+  }
+  else{
+    tabelinha = conti(df, coluna_analisada, coluna)
+    tabelona = rbind(tabelona, tabelinha)
+  }
+}
+capture(tabelona)
+```
+
+```{r REGRESSÕES UNIVARIADAS}
+tabelona = analise_mod(glm(residuo_gastrico~uso_ozempic, family='binomial', data=df))
+tabelona$indice <- row.names(tabelona)
+tabelona = tabelona[FALSE, ]
+#row.names(tabelona) = 1:nrow(tabelona)
+#tabelona <- tabelona[, c("indice", setdiff(names(tabelona), "indice"))]
+
+for (coluna in lista_coluna){
+  tabelinha = analise_mod(glm(df[[coluna_analisada]]~df[[coluna]], family='binomial', data=df))
+  tabelinha$indice = row.names(tabelinha)
+  row.names(tabelinha) = 1:nrow(tabelinha)
+  tabelinha = tabelinha[, c("indice", setdiff(names(tabelinha), "indice"))]
+  if (class(df[[coluna]]) != "numeric"){
+    tabelinha[1,] = NA
+    tabelinha[["indice"]][1] = coluna
+    tabelinha <- rbind(tabelinha[1, ], NA, tabelinha[-1, ])
+  }
+  else{
+    tabelinha = tabelinha[-1,]
+    tabelinha[["indice"]][1] = coluna
+  }
+  
+  tabelona = rbind(tabelona, tabelinha)
+}
+tabelona$`Pr(>|z|)` = sapply(tabelona$`Pr(>|z|)`, function(x) ifelse(is.na(x), NA, retorne_p(x)))
+tabelona =  tabelona[, c(1, (ncol(tabelona) - 3):ncol(tabelona))]
+
+capture(tabelona)
+```
+
+```{r REGRESSÃO MULTIVARIADA}
+sum(is.na(df$Idade))
+sum(is.na(df$Gênero))
+sum(is.na(df$IMC))
+sum(is.na(df$ASA))
+sum(is.na(df$HAS))
+sum(is.na(df$Diabetes))
+sum(is.na(df$Dislipidemia))
+sum(is.na(df$`Doença psiquiátrica`))
+sum(is.na(df$Hipotireoidismo))
+sum(is.na(df$`Cirurgia gástrica prévia`))
+sum(is.na(df$Fundoplicatura))
+sum(is.na(df$`Cirurgia abdomina prévia`))
+sum(is.na(df$cirurgia_previa))
+sum(is.na(df$`inibidor de bomba`))
+sum(is.na(df$tempo_jejum_liquidos))
+sum(is.na(df$tempo_jejum_solidos))
+sum(is.na(df$Colonoscopia))
+sum(is.na(df$sintomas_gabriel))
+
+
+table(df$uso_ozempic)
+df$uso_ozempic = as.numeric(df$uso_ozempic)
+table(df$uso_ozempic)
+df$uso_ozempic = df$uso_ozempic - 1
+
+#APLICANDO PROPENSITY - criando pesos
+df_filter = df %>% mutate(propensity_mod = predict(glm(uso_ozempic~Idade+Gênero+IMC+ASA+HAS+Diabetes+
+                                                         Dislipidemia+`Doença psiquiátrica`+
+                                                         `Cirurgia gástrica prévia`+
+                                                         `Cirurgia abdomina prévia`+tempo_de_uso_cat,
+                                                       family= binomial(link="logit"), data= df), 
+                                                   type = "response"), 
+                          ipw = 1 / propensity_mod * uso_ozempic + 1 / (1 - propensity_mod) * (1 - uso_ozempic))
+#df_filter$ipw #pesos
+df$uso_ozempic = as.factor(df$uso_ozempic)
+
+######### ANALISE ISOLADA #######################################################
+antes = glm(residuo_gastrico~uso_ozempic, binomial(link="logit"), data=df)
+analise_mod(antes)
+
+#após equilibrio
+table(df_filter$residuo_gastrico, df_filter$uso_ozempic)
+depois = glm(residuo_gastrico~uso_ozempic, binomial(link="logit"), data=df_filter, weights = ipw)
+analise_mod(depois)
+
+
+######### ANALISE MULTI #######################################################
+#variaveis com p < 20 na analise univariave
+antes = glm(residuo_gastrico~uso_ozempic+
+               Idade+Gênero+IMC+ASA+HAS+
+               Dislipidemia+`Doença psiquiátrica`+
+               Colonoscopia+comorbidade+
+              medicacoes_uso+`inibidor de bomba`+
+              sintomas_gabriel, binomial(link="logit"), data=df)
+#analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+#após equilibrio
+
+#Idade, IMC
+
+depois = glm(residuo_gastrico~uso_ozempic+
+               Gênero+ASA+HAS+
+               Dislipidemia+`Doença psiquiátrica`+
+               Colonoscopia+comorbidade+
+               medicacoes_uso+`inibidor de bomba`+
+               sintomas_gabriel, binomial(link="logit"), data=df_filter, weights = ipw)
+#analise_mod(depois)
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+#########
+depois = glm(residuo_gastrico~tempo_suspencao+
+               Gênero+ASA+HAS+
+               Dislipidemia+`Doença psiquiátrica`+
+               Colonoscopia+comorbidade+
+               medicacoes_uso+`inibidor de bomba`+
+               sintomas_gabriel, binomial(link="logit"), data=df_filter, weights = ipw)
+#analise_mod(depois)
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+#########
+analise_mod(glm(residuo_gastrico~tempo_suspencao, binomial(link="logit"), data=df))
+antes = glm(residuo_gastrico~tempo_suspencao+
+               Colonoscopia+Idade+IMC, binomial(link="logit"), data=df)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+depois = glm(residuo_gastrico~tempo_suspencao+
+               Colonoscopia+Idade+IMC, binomial(link="logit"), data=df_filter, weights = ipw)
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+```
+
+```{r}
+#APLICANDO PROPENSITY - criando pesos
+df_filter = df %>% mutate(propensity_mod = predict(glm(uso_ozempic~Idade+Gênero+IMC+ASA+HAS+Diabetes+
+                                                         Dislipidemia+`Doença psiquiátrica`+
+                                                         `Cirurgia gástrica prévia`+
+                                                         `Cirurgia abdomina prévia`+tempo_de_uso_cat,
+                                                       family= binomial(link="logit"), data= df), 
+                                                   type = "response"), 
+                          ipw = 1 / propensity_mod * uso_ozempic + 1 / (1 - propensity_mod) * (1 - uso_ozempic))
+#df_filter$ipw #pesos
+```
+
+
+```{r}
+CORTE = 7
+df$tempo_suspencao_TESTE = NA
+df$tempo_suspencao_TESTE[df$`Tempo desde a ultima dose de ozempic em dias` <= CORTE] = 0
+df$tempo_suspencao_TESTE[df$`Tempo desde a ultima dose de ozempic em dias` > CORTE] = 1
+conti(df, "residuo_gastrico", "tempo_suspencao_TESTE")
+analise_mod(glm(residuo_gastrico~tempo_suspencao_TESTE, binomial(link="logit"), data=df))
+
+ponto_de_corte = function(CORTE){
+  df$tempo_suspencao_TESTE[df$`Tempo desde a ultima dose de ozempic em dias` <= CORTE] = 0
+  df$tempo_suspencao_TESTE[df$`Tempo desde a ultima dose de ozempic em dias` > CORTE] = 1
+  conti(df, "residuo_gastrico", "tempo_suspencao_TESTE") %>% print()
+  analise_mod(glm(residuo_gastrico~tempo_suspencao_TESTE, binomial(link="logit"), data=df)) %>% print()
+}
+
+ponto_de_corte(21)
+
+```
+
+
+######################### ANALISE (apenas ozempic) #########################
+
+```{r}
+lista_coluna = names(df)[which(!(names(df) %in% c("residuo_gastrico","uso_ozempic","Quantidade de resíduo","tipo_residuo",
+                                                  "Dose de ozempic","Tempo total de uso em meses",
+                                                  "Tempo desde a ultima dose de ozempic em dias",
+                                                  "Ultima dose a mais de 7 dias","Ultima dose a mais de 10 dias",
+                                                  "Ultima dose a mais de 14 dias","Ultima dose a mais de 21 dias",
+                                                  "Informou expontaneamente o uso de ozempic",
+                                                  "tempo_suspencao","tempo_suspencao2","tempo_de_uso_cat",
+                                                  "tempo_uso_dias","tempo_uso_dias")))]
+```
+
+############ MELHOR PONTO DE CORTE ############
+
+```{r}
+coluna_analisada = "residuo_gastrico"
+df$variavel_categorica  = df[[coluna_analisada]]
+df$variavel_numerica = df$`Tempo desde a ultima dose de ozempic em dias`
+
+#Estimador Hodges Lehmann
+grupo0 = df$variavel_numerica[df$variavel_categorica == 0]
+grupo1 = df$variavel_numerica[df$variavel_categorica == 1]
+teste_man = wilcox.test(grupo1,grupo0,conf.int = TRUE)
+estimador = as.character(round(teste_man$estimate,4))
+IC_00 = as.character(round(teste_man$conf.int[1],4))
+IC_01 = as.character(round(teste_man$conf.int[2],4))
+hodges_lehmann = paste0(estimador,' [',IC_00,' to ',IC_01,']')
+eixo_x = paste("Hodges Lehmann:", hodges_lehmann)
+
+medias = df %>% group_by(variavel_categorica) %>% summarize(med = mean(variavel_numerica))
+medianas = df %>% group_by(variavel_categorica) %>% summarize(med = median(variavel_numerica))
+
+ggplot(df, aes(x=variavel_numerica, fill=as.factor(variavel_categorica))) +
+  geom_density(position='identity', alpha =0.5)+
+  labs(y='Probability Density', fill="Categorias:", title="Tempo de suspenção de medicamento",
+       x = eixo_x,
+       subtitle=paste0("P-value: (Teste t) = ", retorne_p(t.test(variavel_numerica~variavel_categorica, df)$p.value),
+                       "; (Mann Whitney) = ", retorne_p(wilcox.test(variavel_numerica~variavel_categorica, df)$p.value))) +
+  theme_bw() + 
+  theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  #geom_vline(data = medias, aes(xintercept = med, color = as.factor(variavel_categorica)), 
+         #    linetype="dashed", size=1) + #color=c("#40BCD8","#1978B3")
+  geom_vline(data = medianas, aes(xintercept = med, color = as.factor(variavel_categorica)), 
+             linetype="dashed", size=1) +
+  scale_fill_discrete(labels = c("No Residual", "Yes Residual")) + 
+  scale_x_continuous(breaks=seq(from = min(df$variavel_numerica, na.rm=T), 
+                              to = max(df$variavel_numerica, na.rm=T), 
+                              by = (max(df$variavel_numerica, na.rm=T) - min(df$variavel_numerica, na.rm=T))/5))
+
+ ############ ############ ############ ############ ############
+
+df$variavel_resposta = df$residuo_gastrico
+df$variavel_entrada = df$tempo_suspencao
+
+grafi = df %>% 
+  group_by(variavel_resposta, variavel_entrada) %>% 
+  summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 2)) %>% ungroup()
+grafi$variavel_resposta = ifelse(grafi$variavel_resposta == 1, "Com Residuo", "Sem Residuo")
+grafi$variavel_resposta <- factor(grafi$variavel_resposta, levels = c("Com Residuo", "Sem Residuo"))
+
+ggplot(grafi, aes(as.factor(variavel_entrada), Freq, label=Freq, fill=as.factor(variavel_entrada))) + 
+  geom_col(show.legend = FALSE, color="black") + facet_grid(~variavel_resposta) +
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(x="Tempo de suspensão",
+       subtitle = paste0("P-Valor (Qui-Quadrado) = ", retorne_p(chisq.test(df$variavel_resposta, df$variavel_entrada)$p.value)))
+
+conti(df, "residuo_gastrico", "tempo_suspencao")
+
+############ ############
+
+grafi = df %>% 
+  group_by(variavel_entrada, variavel_resposta) %>% 
+  summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 2)) %>% ungroup()
+grafi$variavel_resposta = ifelse(grafi$variavel_resposta == 1, "Com Residuo", "Sem Residuo")
+grafi$variavel_resposta <- factor(grafi$variavel_resposta, levels = c("Com Residuo", "Sem Residuo"))
+
+ggplot(grafi, aes(as.factor(variavel_entrada), Freq, label=Freq, fill=as.factor(variavel_entrada))) + 
+  geom_col(show.legend = FALSE, color="black") + facet_grid(~variavel_resposta) +
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(x="Tempo de suspensão",
+       subtitle = paste0("P-Valor (Qui-Quadrado) = ", retorne_p(chisq.test(df$variavel_resposta, df$variavel_entrada)$p.value)))
+
+conti(df, "residuo_gastrico", "tempo_suspencao", "row")
+```
+```{r}
+df$tempo_suspencao2 = NA
+df$tempo_suspencao2[is.na(df$calculo_gabriel2)] = 0
+df$tempo_suspencao2[df$calculo_gabriel2 <= 7] = 1
+df$tempo_suspencao2[df$calculo_gabriel2 > 7 & df$calculo_gabriel2 <= 14] = 2
+df$tempo_suspencao2[df$calculo_gabriel2 > 14 & df$calculo_gabriel2 <= 21] = 3
+df$tempo_suspencao2[df$calculo_gabriel2 > 21] = 4
+df$tempo_suspencao2 = as.factor(df$tempo_suspencao2)
+table(df$tempo_suspencao2)
+
+############ ############ ############ ############ ############
+
+coluna_analisada = "residuo_gastrico"
+df$variavel_categorica  = df[[coluna_analisada]]
+df$variavel_numerica = df$`Tempo desde a ultima dose de ozempic em dias`
+df$variavel_numerica = df$calculo_gabriel2
+
+#Estimador Hodges Lehmann
+grupo0 = df$variavel_numerica[df$variavel_categorica == 0]
+grupo1 = df$variavel_numerica[df$variavel_categorica == 1]
+teste_man = wilcox.test(grupo1,grupo0,conf.int = TRUE)
+estimador = as.character(round(teste_man$estimate,4))
+IC_00 = as.character(round(teste_man$conf.int[1],4))
+IC_01 = as.character(round(teste_man$conf.int[2],4))
+hodges_lehmann = paste0(estimador,' [',IC_00,' to ',IC_01,']')
+eixo_x = paste("Hodges Lehmann:", hodges_lehmann)
+
+medias = df %>% group_by(variavel_categorica) %>% summarize(med = mean(variavel_numerica))
+medianas = df %>% group_by(variavel_categorica) %>% summarize(med = median(variavel_numerica))
+
+ggplot(df, aes(x=variavel_numerica, fill=as.factor(variavel_categorica))) +
+  geom_density(position='identity', alpha =0.5)+
+  labs(y='Probability Density', fill="Categorias:", title="Tempo de suspenção de medicamento",
+       x = eixo_x,
+       subtitle=paste0("P-value: (Teste t) = ", retorne_p(t.test(variavel_numerica~variavel_categorica, df)$p.value),
+                       "; (Mann Whitney) = ", retorne_p(wilcox.test(variavel_numerica~variavel_categorica, df)$p.value))) +
+  theme_bw() + 
+  theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  #geom_vline(data = medias, aes(xintercept = med, color = as.factor(variavel_categorica)), 
+         #    linetype="dashed", size=1) + #color=c("#40BCD8","#1978B3")
+  geom_vline(data = medianas, aes(xintercept = med, color = as.factor(variavel_categorica)), 
+             linetype="dashed", size=1) +
+  scale_fill_discrete(labels = c("No Residual", "Yes Residual")) + 
+  scale_x_continuous(breaks=seq(from = min(df$variavel_numerica, na.rm=T), 
+                              to = max(df$variavel_numerica, na.rm=T), 
+                              by = (max(df$variavel_numerica, na.rm=T) - min(df$variavel_numerica, na.rm=T))/5))
+
+ ############ ############ ############ ############ ############
+
+df$variavel_resposta = df$residuo_gastrico
+df$variavel_entrada = df$tempo_suspencao2
+
+grafi = df %>% 
+  group_by(variavel_resposta, variavel_entrada) %>% 
+  summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 2)) %>% ungroup()
+grafi$variavel_resposta = ifelse(grafi$variavel_resposta == 1, "Com Residuo", "Sem Residuo")
+grafi$variavel_resposta <- factor(grafi$variavel_resposta, levels = c("Com Residuo", "Sem Residuo"))
+
+ggplot(grafi, aes(as.factor(variavel_entrada), Freq, label=Freq, fill=as.factor(variavel_entrada))) + 
+  geom_col(show.legend = FALSE, color="black") + facet_grid(~variavel_resposta) +
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(x="Tempo de suspensão",
+       subtitle = paste0("P-Valor (Qui-Quadrado) = ", retorne_p(chisq.test(df$variavel_resposta, df$variavel_entrada)$p.value)))
+
+conti(df, "residuo_gastrico", "tempo_suspencao2")
+
+############ ############
+
+grafi = df %>% 
+  group_by(variavel_entrada, variavel_resposta) %>% 
+  summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 2)) %>% ungroup()
+grafi$variavel_resposta = ifelse(grafi$variavel_resposta == 1, "Com Residuo", "Sem Residuo")
+grafi$variavel_resposta <- factor(grafi$variavel_resposta, levels = c("Com Residuo", "Sem Residuo"))
+
+ggplot(grafi, aes(as.factor(variavel_entrada), Freq, label=Freq, fill=as.factor(variavel_entrada))) + 
+  geom_col(show.legend = FALSE, color="black") + facet_grid(~variavel_resposta) +
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(x="Tempo de suspensão",
+       subtitle = paste0("P-Valor (Qui-Quadrado) = ", retorne_p(chisq.test(df$variavel_resposta, df$variavel_entrada)$p.value)))
+
+conti(df, "residuo_gastrico", "tempo_suspencao2", "row")
+```
+
+
+```{r}
+df$variavel_categorica  = df$residuo_gastrico
+df$variavel_numerica = df$`Tempo total de uso em meses`
+
+#Estimador Hodges Lehmann
+grupo0 = df$variavel_numerica[df$variavel_categorica == 0]
+grupo1 = df$variavel_numerica[df$variavel_categorica == 1]
+teste_man = wilcox.test(grupo1,grupo0,conf.int = TRUE)
+estimador = as.character(round(teste_man$estimate,4))
+IC_00 = as.character(round(teste_man$conf.int[1],4))
+IC_01 = as.character(round(teste_man$conf.int[2],4))
+hodges_lehmann = paste0(estimador,' [',IC_00,' to ',IC_01,']')
+eixo_x = paste("Hodges Lehmann:", hodges_lehmann)
+
+medias = df %>% group_by(variavel_categorica) %>% summarize(med = mean(variavel_numerica))
+medianas = df %>% group_by(variavel_categorica) %>% summarize(med = median(variavel_numerica))
+
+ggplot(df, aes(x=variavel_numerica, fill=as.factor(variavel_categorica))) +
+  geom_density(position='identity', alpha =0.5)+
+  labs(y='Probability Density', fill="Categorias:", title="Tempo de Uso",
+       x = eixo_x,
+       subtitle=paste0("P-value: (Teste t) = ", retorne_p(t.test(variavel_numerica~variavel_categorica, df, var.equal=TRUE)$p.value),
+                       "; (Mann Whitney) = ", retorne_p(wilcox.test(variavel_numerica~variavel_categorica, df)$p.value))) +
+  theme_bw() + 
+  theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  #geom_vline(data = medias, aes(xintercept = med, color = as.factor(variavel_categorica)), 
+         #    linetype="dashed", size=1) + #color=c("#40BCD8","#1978B3")
+  geom_vline(data = medianas, aes(xintercept = med, color = as.factor(variavel_categorica)), 
+             linetype="dashed", size=1) +
+  scale_fill_discrete(labels = c("No Residual", "Yes Residual")) + 
+  scale_x_continuous(breaks=seq(from = min(df$variavel_numerica, na.rm=T), 
+                              to = max(df$variavel_numerica, na.rm=T), 
+                              by = (max(df$variavel_numerica, na.rm=T) - min(df$variavel_numerica, na.rm=T))/5))
+
+#ggsave("Diferenca_tempo_de_uso.png", height=10, width=20, units="cm", dpi= 600)
+
+ ############ ############ ############ ############ ############
+
+df_filter = df %>% filter(tempo_de_uso_cat > 0)
+df_filter$variavel_resposta = df_filter$residuo_gastrico
+df_filter$variavel_entrada = df_filter$tempo_de_uso_cat
+
+grafi = df_filter %>% 
+  group_by(variavel_resposta, variavel_entrada) %>% 
+  summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 2)) %>% ungroup()
+grafi$variavel_resposta = ifelse(grafi$variavel_resposta == 1, "Com Uso", "Sem Uso")
+grafi$variavel_resposta <- factor(grafi$variavel_resposta, levels = c("Sem Uso","Com Uso"))
+grafi
+
+ggplot(grafi, aes(as.factor(variavel_entrada), Freq, label=Freq, fill=as.factor(variavel_entrada))) + 
+  geom_col(show.legend = FALSE, color="black") + facet_grid(~variavel_resposta) +
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(x="Tempo de Uso",
+       subtitle = paste0("P-Valor (Qui-Quadrado) = ", retorne_p(chisq.test(df_filter$variavel_resposta, df_filter$variavel_entrada)$p.value)))
+```
+
+############ apenas ozempic ############
+
+```{r}
+df = df_backup %>% filter(uso_ozempic == 1)
+
+table(df$uso_ozempic)
+
+for (coluna in names(df)){
+  classe = class(df[[coluna]])
+  if (classe != "numeric"){
+    df[[coluna]] = as.factor(df[[coluna]])
+    df[[coluna]] = droplevels(df[[coluna]])
+  }
+}
+```
+
+```{r}
+coluna_analisada = "residuo_gastrico"
+lista_coluna = names(df)[which(!(names(df) %in% c("residuo_gastrico",
+                                                  "Quantidade de resíduo",
+                                                  "tipo_residuo", "uso_ozempic")))]
+
+df$`residuo_gastrico` = as.factor(df$`residuo_gastrico`)
+tabelona = summary_num_cat("Idade", coluna_analisada)[FALSE, ]
+
+for (coluna in lista_coluna){
+  classe = class(df[[coluna]])
+  if (classe == "numeric"){
+    if (normalidade_por_grupo_criterio(coluna, coluna_analisada) == TRUE){
+      tabelinha = summary_numerico_por_grupo_parametrico(coluna, coluna_analisada)
+    }
+    else{
+      tabelinha = summary_numerico_por_grupo_n_parametrico(coluna, coluna_analisada)
+    }
+    tabelona = rbind(tabelona, tabelinha)
+  }
+  else{
+    tabelinha = conti(df, coluna_analisada, coluna)
+    tabelona = rbind(tabelona, tabelinha)
+  }
+}
+capture(tabelona)
+```
+
+```{r}
+tabelona = analise_mod(glm(residuo_gastrico~Idade, family='binomial', data=df))
+tabelona$indice <- row.names(tabelona)
+tabelona = tabelona[FALSE, ]
+#row.names(tabelona) = 1:nrow(tabelona)
+#tabelona <- tabelona[, c("indice", setdiff(names(tabelona), "indice"))]
+
+for (coluna in lista_coluna){
+  tabelinha = analise_mod(glm(df[[coluna_analisada]]~df[[coluna]], family='binomial', data=df))
+  tabelinha$indice = row.names(tabelinha)
+  row.names(tabelinha) = 1:nrow(tabelinha)
+  tabelinha = tabelinha[, c("indice", setdiff(names(tabelinha), "indice"))]
+  if (class(df[[coluna]]) != "numeric"){
+    tabelinha[1,] = NA
+    tabelinha[["indice"]][1] = coluna
+    tabelinha <- rbind(tabelinha[1, ], NA, tabelinha[-1, ])
+  }
+  else{
+    tabelinha = tabelinha[-1,]
+    tabelinha[["indice"]][1] = coluna
+  }
+  
+  tabelona = rbind(tabelona, tabelinha)
+}
+tabelona$`Pr(>|z|)` = sapply(tabelona$`Pr(>|z|)`, function(x) ifelse(is.na(x), NA, retorne_p(x)))
+tabelona =  tabelona[, c(1, (ncol(tabelona) - 3):ncol(tabelona))]
+
+table(df$ozempic_sintomas)
+levels(as.factor(df$ozempic_sintomas))
+
+capture(tabelona)
+```
+
+
+```{r}
+modelo = glm(residuo_gastrico~Idade+
+               `Tempo total de uso em meses`+
+               `Tempo desde a ultima dose de ozempic em dias`+
+               Colonoscopia+sintomas_gabriel, family='binomial', data=df)
+analise_mod(modelo)
+
+############ ######################## ############
+
+hist(df$`Tempo total de uso em meses`)
+shapiro.test(df$`Tempo total de uso em meses`)
+sum(is.na(df$`Tempo total de uso em meses`))
+
+df$`Tempo total de uso em meses`[is.na(df$`Tempo total de uso em meses`)] <- median(df$`Tempo total de uso em meses`, na.rm = TRUE)
+
+modelo = glm(residuo_gastrico~Idade+
+               `Tempo total de uso em meses`+
+               `Tempo desde a ultima dose de ozempic em dias`+
+               Colonoscopia+sintomas_gabriel, family='binomial', data=df)
+analise_mod(modelo)
+
+analise_mod(step(modelo, direction = "backward", test = "F"))
+
+```
+
+```{r CRUZAMENTO COM VARIAVEIS NUMERICAS}
+df_filter = df %>% filter(residuo_gastrico == 0)
+df_numeric <- df_filter[sapply(df, is.numeric)]
+correlation_matrix <- cor(df_numeric)
+as.data.frame(correlation_matrix)
+
+# Converter a matriz de correlação para long format
+correlation_data <- melt(correlation_matrix)
+ggplot(data = correlation_data, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  geom_text(aes(label = round(value, 2)), size = 4) +
+  theme_minimal() +
+  labs(title = "Matriz de Correlação", fill = "Correlação")
+
+
+```
+

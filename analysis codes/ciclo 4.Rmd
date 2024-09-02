@@ -1,0 +1,650 @@
+```{r}
+library(cobalt)
+library(WeightIt)
+```
+
+```{r}
+df = df_backup
+```
+
+```{r}
+sum(is.na(df$Idade))
+sum(is.na(df$Gênero))
+sum(is.na(df$IMC))
+sum(is.na(df$ASA))
+sum(is.na(df$HAS))
+sum(is.na(df$Diabetes))
+sum(is.na(df$Dislipidemia))
+sum(is.na(df$`Doença psiquiátrica`))
+sum(is.na(df$Hipotireoidismo))
+sum(is.na(df$`Cirurgia gástrica prévia`))
+sum(is.na(df$Fundoplicatura))
+sum(is.na(df$`Cirurgia abdomina prévia`))
+sum(is.na(df$cirurgia_previa))
+sum(is.na(df$`inibidor de bomba`))
+sum(is.na(df$tempo_jejum_liquidos))
+sum(is.na(df$tempo_jejum_solidos))
+sum(is.na(df$Colonoscopia))
+sum(is.na(df$sintomas_gabriel))
+```
+
+```{r Aplicando Pesos- (teste 1)}
+table(df$uso_ozempic)
+df$uso_ozempic = as.numeric(df$uso_ozempic)
+table(df$uso_ozempic)
+df$uso_ozempic = df$uso_ozempic - 1
+
+#colonoscopia, sintomas digestivo
+#APLICANDO PROPENSITY - criando pesos
+df = df %>% mutate(propensity_mod = predict(glm(uso_ozempic~Idade+Gênero+IMC+ASA+HAS+Diabetes+
+                                                         Dislipidemia+`Doença psiquiátrica`+
+                                                         `Cirurgia gástrica prévia`+
+                                                         `Cirurgia abdomina prévia`+tempo_de_uso_cat,
+                                                       family= binomial(link="logit"), data= df), 
+                                                   type = "response"), 
+                          ipw = 1 / propensity_mod * uso_ozempic + 1 / (1 - propensity_mod) * (1 - uso_ozempic))
+#df$ipw
+df$uso_ozempic = as.factor(df$uso_ozempic)
+```
+
+```{r}
+df$tempo_de_uso_num = df$`Tempo total de uso em meses`
+df$tempo_de_uso_num = as.numeric(df$tempo_de_uso_num)
+
+ps_ipw <- weightit(
+    uso_ozempic ~ Idade + Gênero + IMC + ASA + HAS + Diabetes + 
+      Dislipidemia + tempo_jejum_liquidos + tempo_jejum_solidos + 
+      `inibidor de bomba` +
+      `Cirurgia gástrica prévia` + `Cirurgia abdomina prévia` + 
+      tempo_de_uso_num + Colonoscopia + 
+      sintomas_gabriel
+      ,
+    data = df, estimand = "ATE")
+
+#summary(ps_ipw)
+
+#love.plot(ps_ipw, 
+#          drop.distance = TRUE, 
+#          var.order = "unadjusted",
+#          abs = TRUE,
+#          thresholds = c(m = .1))
+
+#####################################################
+
+dados = bal.tab(ps_ipw, un = TRUE)
+df_balance = dados$Balance
+
+df_balance = df_balance %>% mutate(variable = rownames(.))
+df_balance$Type = NULL
+df_balance = df_balance[-1, ]
+
+df_balance$variable
+df_balance = na.omit(df_balance)
+variavels = c("Age (Years)", "Sex", "BMI (kg.m²)",
+              "ASA I", "ASA II", "ASA III",
+              "Hypertension", "Diabetes Mellitus", "Dyslipidemia",
+              "Fasting Duration\nfor clear Liquids",
+              "Fasting Duration\nfor clear Solids",
+              "Proton-pump inhibitors",
+              "Previous fundoplication\nfor GERD",
+              "Previous abdominal\nsurgery",
+              "Duration of\nSemaglutide use (months)",
+              "Colonoscopy","Digestive Symptoms")
+
+df_balance$variable = variavels
+df_balance
+
+long_data <- tidyr::gather(df_balance, key = "type", value = "value", -variable)
+long_data
+
+ggplot(long_data, aes(y = reorder(variable, value, FUN = mean), x = value, fill = type)) +
+  geom_point(stroke = 1, shape = 21, alpha=0.7, size=3) +
+  geom_vline(xintercept = 0.1, linetype = "dashed", color = "black", size = 0.75) +
+  geom_vline(xintercept = -0.1, linetype = "dashed", color = "black", size = 0.75) +
+  theme_bw() + 
+  theme(legend.position="bottom", plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Covariate Balancing",
+       y = "Covariates",
+       x = "Standardized Difference (%)",
+       fill = "") +
+  scale_fill_discrete(labels=c("Weighted","Unadjusted")) +
+  scale_x_continuous(breaks=seq(from = -0.8, to = 0.3, by = 0.10), limits = c(-0.75, 0.25))
+
+ggsave("balanceamento_variavels.png", height=15, width=15, units="cm", dpi= 600)
+
+########################################################
+
+gghistogram(long_data, x = "value",
+   add = "mean", rug = TRUE,
+   fill = "type") +
+  labs(x = "Propensity Score",
+       fill= "", color="", y="") +
+  scale_fill_discrete(labels=c("Weighted","Unadjusted"))
+
+ggsave("hist_balanceamento_variavels.png", height=10, width=15, units="cm", dpi= 600)
+
+```
+```{r}
+ps_ipw <- weightit(
+    uso_ozempic ~ Idade + Gênero + IMC + ASA + HAS + Diabetes + 
+      Dislipidemia + tempo_jejum_liquidos + tempo_jejum_solidos + 
+      `inibidor de bomba` +
+      `Cirurgia gástrica prévia` + `Cirurgia abdomina prévia` + 
+      tempo_de_uso_num + Colonoscopia + 
+      sintomas_gabriel + `Tempo desde a ultima dose de ozempic em dias`
+      ,
+    data = df, estimand = "ATE")
+
+#####################################################
+
+dados = bal.tab(ps_ipw, un = TRUE)
+df_balance = dados$Balance
+
+df_balance = df_balance %>% mutate(variable = rownames(.))
+df_balance$Type = NULL
+df_balance = df_balance[-1, ]
+
+df_balance$variable
+df_balance = na.omit(df_balance)
+variavels = c("Age (Years)", "Sex", "BMI (kg.m²)",
+              "ASA I", "ASA II", "ASA III",
+              "Hypertension", "Diabetes Mellitus", "Dyslipidemia",
+              "Fasting Duration\nfor clear Liquids",
+              "Fasting Duration\nfor clear Solids",
+              "Proton-pump inhibitors",
+              "Previous fundoplication\nfor GERD",
+              "Previous abdominal\nsurgery",
+              "Duration of\nSemaglutide use (months)",
+              "Colonoscopy","Digestive Symptoms",
+              "Semaglutide interruption (days)")
+
+df_balance$variable = variavels
+df_balance
+
+long_data <- tidyr::gather(df_balance, key = "type", value = "value", -variable)
+long_data
+
+ggplot(long_data, aes(y = reorder(variable, value, FUN = mean), x = value, fill = type)) +
+  geom_jitter(width = 0.005, height = 0.2, stroke = 1, shape = 21, alpha = 0.7, size = 3) +
+  geom_vline(xintercept = 0.1, linetype = "dashed", color = "black", size = 0.75) +
+  geom_vline(xintercept = -0.1, linetype = "dashed", color = "black", size = 0.75) +
+  theme_bw() + 
+  theme(legend.position="bottom", plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Covariate Balancing",
+       y = "Covariates",
+       x = "Standardized Difference (%)",
+       fill = "") +
+  scale_fill_discrete(labels = c("Weighted","Unadjusted")) +
+  scale_x_continuous(breaks = seq(from = -0.8, to = 0.3, by = 0.10), limits = c(-0.75, 0.25))
+
+
+ggsave("balanceamento_variavels_com_tempo_suspencao.png", height=15, width=15, units="cm", dpi= 600)
+
+```
+
+
+```{r REGRESSÃO MULTIVARIADA}
+######### ANALISE ISOLADA #######################################################
+antes = glm(residuo_gastrico~tempo_suspencao, binomial(link="logit"), data=df)
+analise_mod(antes)
+
+depois = glm(residuo_gastrico~tempo_suspencao, binomial(link="logit"), data=df, weights = ipw)
+analise_mod(depois)
+
+######### ANALISE MULTI #######################################################
+#### TESTE 1
+antes = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+
+               Dislipidemia+`Doença psiquiátrica`+
+               Colonoscopia+comorbidade+Idade+
+              medicacoes_uso+`inibidor de bomba`, binomial(link="logit"), data=df)
+analise(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+#
+depois = glm(residuo_gastrico~tempo_uso_leopoldo
+               tempo_suspencao+sintomas_gabriel+
+                 Colonoscopia+Idade, 
+             binomial(link="logit"), data=df, weights = ipw)
+analise_mod(depois)
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+#### TESTE 2
+depois = glm(residuo_gastrico~tempo_uso_leopoldo+
+               tempo_suspencao+sintomas_gabriel+Idade, 
+             binomial(link="logit"), data=df, weights = ipw)
+analise_mod(depois)
+#ESCOLHIDO
+analise_mod(step(depois, direction = "backward", test = "F")) %>% capture()
+
+#######################
+
+#### TESTE 3
+df$`Tempo total de uso em meses` = ifelse(is.na(df$`Tempo total de uso em meses`), 0, df$`Tempo total de uso em meses`)
+
+antes = glm(residuo_gastrico~`Tempo total de uso em meses`+
+              tempo_suspencao+sintomas_gabriel+
+              Idade, 
+             binomial(link="logit"), data=df)
+analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F")) #
+
+
+depois = glm(residuo_gastrico~`Tempo total de uso em meses`+
+               tempo_suspencao+sintomas_gabriel+
+               Idade, 
+             binomial(link="logit"), data=df, weights = ipw)
+########## ESCOLHIDO 
+analise_mod(depois) %>% capture() 
+analise_mod(step(depois, direction = "backward", test = "F")) #
+
+
+```
+```{r}
+coluna = "Idade"
+
+grupo0 = df[[coluna]][df$uso_ozempic == 0]
+grupo0
+grupo1 = df[[coluna]][df$uso_ozempic == 1]
+grupo1
+
+media_tratamento = mean(grupo0, na.rm=T)
+media_controle = mean(grupo1, na.rm=T)
+des_pad_geral = sd(c(grupo0, grupo1))
+
+SMD = (media_tratamento - media_controle)/des_pad_geral
+SMD
+
+```
+
+
+```{r}
+df$covar1 = df$Idade
+# Antes da ponderação
+smd_before <- df %>%
+  group_by(uso_ozempic) %>%
+  summarise(mean_covar1 = mean(covar1), sd_covar1 = sd(covar1), n = n()) %>%
+  summarise(SMD_covar1 = abs(diff(mean_covar1)) / sqrt(sum((n - 1) * sd_covar1^2) / sum(n - 1)))
+
+smd_before
+
+# Depois da ponderação (usando a coluna 'ipw' para os pesos)
+smd_after <- df %>% group_by(uso_ozempic) %>%
+  summarise(weighted_mean_covar1 = weighted.mean(covar1, ipw), weighted_sd_covar1 = sqrt(weighted.var(covar1, ipw)), n = n()) %>%
+  summarise(SMD_covar1 = abs(diff(weighted_mean_covar1)) / sqrt(sum((n - 1) * weighted_sd_covar1^2) / sum(n - 1)))
+
+smd_after
+
+for (coluna in lista){
+  print(coluna)
+  print(weighted.mean(df[[coluna]], df$ipw))
+}
+```
+
+```{r}
+weighted.mean(df$covar1, df$ipw)
+mean(df$covar1)
+```
+
+```{r}
+df$sint_susp = NA
+df$tempo_sus = df$`Tempo desde a ultima dose de ozempic em dias`
+
+df$sint_susp[df$uso_ozempic == "0" & df$sintomas_gabriel == "0"] = "0"
+df$sint_susp[df$uso_ozempic == "0" & df$sintomas_gabriel == "1"] = "1"
+df$sint_susp[df$uso_ozempic == "1" & df$sintomas_gabriel == "1" & df$tempo_sus <= 14] = "3"
+df$sint_susp[df$uso_ozempic == "1" & df$sintomas_gabriel == "1" & df$tempo_sus > 14] = "5"
+df$sint_susp[df$uso_ozempic == "1" & df$sintomas_gabriel == "0" & df$tempo_sus <= 14] = "2"
+df$sint_susp[df$uso_ozempic == "1" & df$sintomas_gabriel == "0" & df$tempo_sus > 14] = "4"
+table(df$sint_susp)
+table(df$uso_ozempic, df$sintomas_gabriel)
+
+depois = glm(residuo_gastrico~sint_susp+`Tempo total de uso em meses`+
+               sintomas_gabriel+
+               Colonoscopia+Idade, 
+             binomial(link="logit"), data=df)
+analise_mod(depois)
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+
+
+depois = glm(residuo_gastrico~sint_susp+`Tempo total de uso em meses`+
+               sintomas_gabriel+
+               Colonoscopia+Idade, 
+             binomial(link="logit"), data=df, weights = ipw)
+analise_mod(depois) %>% capture() #####ESCOLHIDO
+#ESCOLHIDO
+analise_mod(step(depois, direction = "backward", test = "F"))
+```
+```{r}
+wilcox.test(df$Idade~df$Gênero)
+```
+```{r}
+df$separacao = df$residuo_gastrico
+df$separacao = ifelse(df$separacao == 1, "Yes Residual", "No Residual")
+df$separacao = as.factor(df$separacao)
+df$separacao = factor(df$separacao, levels=c("Yes Residual", "No Residual"))
+
+ggplot(df, aes(x=`Tempo total de uso em meses`, 
+                      y=`Tempo desde a ultima dose de ozempic em dias`, 
+                      fill=separacao)) + 
+  geom_point(color = "black", stroke = 1, shape = 21, alpha=0.8, size=4) + 
+  facet_grid(separacao~.) + theme_bw() + theme(legend.position="bottom") +
+  labs(x="Duration of use (months)", y="Time interruption (days)",
+       fill="Residual Gastric") +
+  ggtitle("Time intervals of semaglutide interruption (days)")
+
+#analise uni
+summary_numerico_por_grupo_n_parametrico("Tempo total de uso em meses", "residuo_gastrico")
+analise_mod(glm(residuo_gastrico~df$`Tempo total de uso em meses`+, 
+                family='binomial', data=df)) %>% capture()
+
+#analise multi teste
+analise_mod(glm(residuo_gastrico~df$`Tempo total de uso em meses`+
+                  df$`Tempo desde a ultima dose de ozempic em dias`, family='binomial', data=df)) %>% capture()
+
+```
+
+
+```{r}
+# Carregar pacotes necessários
+#library(ggplot2)
+#install.packages("dendextend")
+library(dendextend)
+
+fd <- data.frame("Tempo total de uso em meses" = character(0), 
+                 "Tempo desde a ultima dose de ozempic em dias" = character(0), 
+                 "cluster"= character(0),
+                 'separacao' = character(0))
+
+for (i in 0:1){
+  df_filter = df_backup
+  df_filter = df_filter %>% filter(residuo_gastrico == as.character(i))
+  df_filter = df_filter[c('Tempo total de uso em meses', 'Tempo desde a ultima dose de ozempic em dias')]
+  df_filter = na.omit(df_filter)
+  
+  # Padronizar as variáveis
+  df_filter_scaled = as.data.frame(scale(df_filter))
+  
+  # Realizar análise de agrupamento hierárquico
+  dist_matrix <- dist(df_filter_scaled)
+  hclust_result <- hclust(dist_matrix, method = "average")  # método "average" para agrupamento aglomerativo
+  
+  # Criar dendrograma
+  dend <- as.dendrogram(hclust_result)
+  
+  k_cluster = 3
+  
+  # Opcional: Cortar o dendrograma para criar k clusters (por exemplo, k=3)
+  clust_assignments <- cutree(hclust_result, k=k_cluster)
+  
+  # Adicionar as informações de cluster ao conjunto de dados
+  df_filter_scaled$cluster <- as.factor(clust_assignments)
+  
+  # Plotar o dendrograma usando dendextend
+  dend <- color_branches(dend, k=k_cluster)  # Colore os ramos com base nos clusters
+  plot(dend)
+  
+  # Copiar a coluna 'cluster' para o DataFrame original
+  df_filter$cluster = df_filter_scaled$cluster
+  df_filter$separacao = as.character(i)
+  
+  fd = rbind(fd, df_filter)
+}
+
+fd$separacao = ifelse(fd$separacao == 1, "Yes Residual", "No Residual")
+fd$separacao = as.factor(fd$separacao)
+fd$separacao = factor(fd$separacao, levels=c("Yes Residual", "No Residual"))
+
+ggplot(fd, aes(x=`Tempo total de uso em meses`, 
+                      y=`Tempo desde a ultima dose de ozempic em dias`, 
+                      fill=separacao)) + 
+  geom_point(color = "black", stroke = 1, shape = 21, size = 4) + 
+  facet_grid(separacao~.) + theme_bw() + theme(legend.position="bottom") +
+  labs(x="Duration of use (months)", y="Time interruption (days)",
+       fill="Digestive Symptoms") +
+  ggtitle("Time intervals of semaglutide interruption (days)")
+
+##############
+```
+
+
+```{r}
+depois = glm(residuo_gastrico~`Dose de ozempic`, 
+             binomial(link="logit"), data=df)
+analise_mod(depois)
+
+
+summary_numerico_por_grupo_n_parametrico("sintomas_gabriel", "Dose de ozempic")
+
+summary_numerico_por_grupo_n_parametrico("Dose de ozempic", "sintomas_gabriel")
+
+hist(df$`Tempo total de uso em meses`)
+
+```
+
+
+```{r}
+df$tempo_uso_leopoldo = NA
+
+mean(df$`Tempo total de uso em meses`, na.rm=T)
+df$tempo_uso_leopoldo[is.na(df$`Tempo total de uso em meses`)] = 1
+
+df$tempo_uso_leopoldo[df$uso_ozempic == 0] = 0
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` < 9] = 1
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` >= 9] = 2
+df$tempo_uso_leopoldo = as.factor(df$tempo_uso_leopoldo)
+
+#################################################################
+
+analise_mod(glm(residuo_gastrico~tempo_uso_leopoldo, binomial(link="logit"), data=df))
+analise_mod(glm(residuo_gastrico~tempo_uso_leopoldo, binomial(link="logit"), data=df, weights = ipw))
+
+antes = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+tempo_uso_leopoldo+
+               HAS+Colonoscopia+Idade, binomial(link="logit"), data=df)
+#analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+#após equilibrio
+depois = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+tempo_uso_leopoldo+
+               HAS+Colonoscopia+Idade, binomial(link="logit"), data=df, weights = ipw)
+#analise_mod(depois)
+analise_mod(step(depois, direction = "backward", test = "F"))
+```
+
+```{r}
+df = df_backup %>% filter(uso_ozempic == 1)
+
+df$tempo_uso_leopoldo = NA
+
+mean(df$`Tempo total de uso em meses`, na.rm=T)
+df$tempo_uso_leopoldo[is.na(df$`Tempo total de uso em meses`)] = 1
+
+df$tempo_uso_leopoldo[df$uso_ozempic == 0] = 0
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` <= 4] = 1
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` >= 5 & df$`Tempo total de uso em meses` <= 8] = 2
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` >= 9 & df$`Tempo total de uso em meses` <= 12] = 3
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` > 12] = 4
+df$tempo_uso_leopoldo = as.factor(df$tempo_uso_leopoldo)
+
+#########################################################################
+
+df$tempo_uso_leopoldo = NA
+
+mean(df$`Tempo total de uso em meses`, na.rm=T)
+df$tempo_uso_leopoldo[is.na(df$`Tempo total de uso em meses`)] = 1
+
+df$tempo_uso_leopoldo[df$uso_ozempic == 0] = 0
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` < 9] = 1
+df$tempo_uso_leopoldo[df$`Tempo total de uso em meses` >= 9] = 2
+df$tempo_uso_leopoldo = as.factor(df$tempo_uso_leopoldo)
+
+
+df$tempo_uso_leopoldo <- droplevels(df$tempo_uso_leopoldo)
+df$tempo_suspencao <- droplevels(df$tempo_suspencao)
+
+#################################################################
+
+analise_mod(glm(residuo_gastrico~tempo_uso_leopoldo, binomial(link="logit"), data=df))
+
+antes = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+
+               HAS+Colonoscopia+Idade, binomial(link="logit"), data=df)
+analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+```
+
+```{r}
+df$tempo_suspencao = NA
+df$tempo_suspencao[is.na(df$`Tempo desde a ultima dose de ozempic em dias`)] = 0
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` <= 21] = 1
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 21] = 2
+df$tempo_suspencao = as.factor(df$tempo_suspencao)
+
+df$tempo_suspencao <- droplevels(df$tempo_suspencao)
+
+analise_mod(glm(residuo_gastrico~tempo_suspencao, binomial(link="logit"), data=df))
+
+antes = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+
+               HAS+Colonoscopia+Idade, binomial(link="logit"), data=df)
+analise_mod(antes)
+
+############# ESCOLHIDA
+analise_mod(step(antes, direction = "backward", test = "F")) 
+#****(2 TOPICO) 
+```
+
+```{r}
+df$tempo_suspencao = df$`Tempo desde a ultima dose de ozempic em dias`
+
+analise_mod(glm(residuo_gastrico~tempo_suspencao, binomial(link="logit"), data=df))
+
+antes = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+
+               HAS+Colonoscopia+Idade, binomial(link="logit"), data=df)
+analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+```
+
+
+
+```{r}
+modelo = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+tempo_uso_leopoldo+
+               Colonoscopia, binomial(link="logit"), data=df)
+
+analise_mod(modelo)
+
+modelo = glm(residuo_gastrico~tempo_suspencao+sintomas_gabriel+tempo_uso_leopoldo+
+               Colonoscopia, binomial(link="logit"), data=df, weights = ipw)
+
+analise_mod(modelo)
+```
+
+
+```{r REGRESSÕES}
+df$tempo_suspencao = NA
+df$tempo_suspencao[is.na(df$`Tempo desde a ultima dose de ozempic em dias`)] = 0
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` <= 7] = 1
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 7 & df$`Tempo desde a ultima dose de ozempic em dias` <= 14] = 2
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 14 & df$`Tempo desde a ultima dose de ozempic em dias` <= 21] = 3
+df$tempo_suspencao[df$`Tempo desde a ultima dose de ozempic em dias` > 21] = 4
+df$tempo_suspencao = as.factor(df$tempo_suspencao)
+table(df$tempo_suspencao)
+
+conti(df, "residuo_gastrico", "tempo_suspencao", "col")
+conti(df, "residuo_gastrico", "tempo_suspencao", "row")
+analise_mod(glm(residuo_gastrico ~ tempo_suspencao, family=binomial(), data=df))
+
+model_multinom <- multinom(as.factor(tempo_suspencao) ~ Idade+Gênero+IMC+ASA+HAS+Diabetes+
+              Dislipidemia+`Doença psiquiátrica`+
+              `Cirurgia abdomina prévia`+tempo_de_uso_cat, data=df)
+
+df$prob_T0 <- fitted(model_multinom)[, "0"]
+df$prob_T1 <- fitted(model_multinom)[, "1"]
+df$prob_T2 <- fitted(model_multinom)[, "2"]
+df$prob_T3 <- fitted(model_multinom)[, "3"]
+df$prob_T4 <- fitted(model_multinom)[, "4"]
+
+df$weight <- 1
+df$weight[df$tempo_suspencao == 0] <- 1 / df$prob_T0[df$tempo_suspencao == 0]
+df$weight[df$tempo_suspencao == 1] <- 1 / df$prob_T1[df$tempo_suspencao == 1]
+df$weight[df$tempo_suspencao == 2] <- 1 / df$prob_T2[df$tempo_suspencao == 2]
+df$weight[df$tempo_suspencao == 3] <- 1 / df$prob_T3[df$tempo_suspencao == 3]
+df$weight[df$tempo_suspencao == 4] <- 1 / df$prob_T4[df$tempo_suspencao == 4]
+
+########################## INFLUENCIA ISOLADA
+
+#COM PESO
+model_effect <- glm(residuo_gastrico ~ tempo_suspencao, family=binomial(link="logit"), data=df, weights=weight)
+analise_mod(model_effect)
+
+#SEM PESO
+model_effect <- glm(residuo_gastrico ~ tempo_suspencao, family=binomial(link="logit"), data=df)
+analise_mod(model_effect)
+
+##########################
+
+antes = glm(residuo_gastrico~tempo_suspencao+
+               Colonoscopia+Idade+IMC, binomial(link="logit"), data=df)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+depois = glm(residuo_gastrico~tempo_suspencao+
+               Colonoscopia+Idade+IMC, binomial(link="logit"), data=df, weights = weight)
+analise_mod(depois)
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+########################## 
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+#df$`Tempo total de uso em meses` = ifelse(is.na(df$`Tempo total de uso em meses`), 0, df$`Tempo total de uso em meses`)
+#df$`Dose de ozempic` = ifelse(is.na(df$`Dose de ozempic`), 0, df$`Dose de ozempic`)
+
+antes = glm(sintomas_gabriel~tempo_suspencao+
+               Idade+
+               Colonoscopia+`Tempo total de uso em meses`+`Dose de ozempic`, 
+            binomial(link="logit"), data=df)
+analise_mod(antes)
+analise_mod(step(antes, direction = "backward", test = "F"))
+
+
+#após equilibrio
+depois = glm(sintomas_gabriel~tempo_suspencao+
+               Idade+
+               Colonoscopia+`Tempo total de uso em meses`+`Dose de ozempic`, 
+             binomial(link="logit"), data=df, weights = ipw)
+analise_mod(depois) %>% capture() ##############ESCOLHIDO
+analise_mod(step(depois, direction = "backward", test = "F"))
+
+```
+
+```{r}
+antes = glm(sintomas_gabriel~tempo_suspencao+
+              residuo_gastrico+Idade+Dislipidemia+
+              Colonoscopia+`Tempo total de uso em meses`, 
+            binomial(link="logit"), data=df)
+analise_mod(antes)
+```
+
+```{r}
+
+```
+
+```{r}
+```
+
+```{r}
+
+```
+
